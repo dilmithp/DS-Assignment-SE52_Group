@@ -1,5 +1,6 @@
 version: '3.8'
 
+
 services:
   consul:
     image: hashicorp/consul:1.17
@@ -8,15 +9,20 @@ services:
       - "8500:8500"
     command: "agent -dev -client=0.0.0.0"
 
+
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.4
     container_name: keycloak
     environment:
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_STRICT_HTTPS=false
+      - KC_HTTP_ENABLED=true
     ports:
       - "8180:8080"
     command: "start-dev"
+
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
@@ -26,6 +32,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
@@ -40,6 +47,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+
   postgres-patient:
     image: postgres:16
     container_name: postgres-patient
@@ -49,6 +57,7 @@ services:
       - POSTGRES_DB=patientdb
     ports:
       - "5432:5432"
+
 
   postgres-doctor:
     image: postgres:16
@@ -60,6 +69,7 @@ services:
     ports:
       - "5433:5432"
 
+
   postgres-appointment:
     image: postgres:16
     container_name: postgres-appointment
@@ -70,6 +80,7 @@ services:
     ports:
       - "5434:5432"
 
+
   postgres-payment:
     image: postgres:16
     container_name: postgres-payment
@@ -79,3 +90,4 @@ services:
       - POSTGRES_DB=paymentdb
     ports:
       - "5435:5432"
+
