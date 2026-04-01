@@ -1,0 +1,9 @@
+spring:
+  cloud:
+    consul:
+      host: consul
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://keycloak:8080/realms/healthcare/protocol/openid-connect/certs

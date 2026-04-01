@@ -1,6 +1,5 @@
 version: '3.8'
 
-
 services:
   consul:
     image: hashicorp/consul:1.17
@@ -8,7 +7,11 @@ services:
     ports:
       - "8500:8500"
     command: "agent -dev -client=0.0.0.0"
-
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/v1/status/leader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.4
@@ -23,7 +26,6 @@ services:
       - "8180:8080"
     command: "start-dev"
 
-
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: zookeeper
@@ -32,7 +34,6 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
-
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
@@ -44,9 +45,10 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
 
   postgres-patient:
     image: postgres:16
@@ -58,7 +60,6 @@ services:
     ports:
       - "5432:5432"
 
-
   postgres-doctor:
     image: postgres:16
     container_name: postgres-doctor
@@ -68,7 +69,6 @@ services:
       - POSTGRES_DB=doctordb
     ports:
       - "5433:5432"
-
 
   postgres-appointment:
     image: postgres:16
@@ -80,7 +80,6 @@ services:
     ports:
       - "5434:5432"
 
-
   postgres-payment:
     image: postgres:16
     container_name: postgres-payment
@@ -91,3 +90,116 @@ services:
     ports:
       - "5435:5432"
 
+  # Spring Boot Microservices
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      consul:
+        condition: service_healthy
+
+  patient-service:
+    build: ./patient-service
+    container_name: patient-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8081:8081"
+    depends_on:
+      consul:
+        condition: service_healthy
+      postgres-patient:
+        condition: service_started
+
+  doctor-service:
+    build: ./doctor-service
+    container_name: doctor-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8082:8082"
+    depends_on:
+      consul:
+        condition: service_healthy
+      postgres-doctor:
+        condition: service_started
+
+  appointment-service:
+    build: ./appointment-service
+    container_name: appointment-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8083:8083"
+    depends_on:
+      consul:
+        condition: service_healthy
+      postgres-appointment:
+        condition: service_started
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8084:8084"
+    depends_on:
+      consul:
+        condition: service_healthy
+      postgres-payment:
+        condition: service_started
+      kafka:
+        condition: service_started
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8085:8085"
+    depends_on:
+      consul:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  telemedicine-service:
+    build: ./telemedicine-service
+    container_name: telemedicine-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8086:8086"
+    depends_on:
+      consul:
+        condition: service_healthy
+
+  ai-symptom-service:
+    build: ./ai-symptom-service
+    container_name: ai-symptom-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8087:8087"
+    depends_on:
+      consul:
+        condition: service_healthy
+
+  consultation-orchestrator:
+    build: ./consultation-orchestrator
+    container_name: consultation-orchestrator
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8088:8088"
+    depends_on:
+      consul:
+        condition: service_healthy
+      kafka:
+        condition: service_started

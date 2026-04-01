@@ -1,0 +1,11 @@
+spring:
+  cloud:
+    consul:
+      host: consul
+  kafka:
+    bootstrap-servers: kafka:9092
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://keycloak:8080/realms/healthcare/protocol/openid-connect/certs
