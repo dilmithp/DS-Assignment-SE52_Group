@@ -8,4 +8,4 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://keycloak:8080/realms/healthcare/protocol/openid-connect/certs
+          jwk-set-uri: http://65.2.171.207:8180/realms/healthcare/protocol/openid-connect/certs
