@@ -8,4 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 public interface DoctorServiceClient {
     @PostMapping("/api/doctors/{doctorId}/appointments/{appointmentId}/accept")
     void acceptAppointment(@PathVariable("doctorId") Long doctorId, @PathVariable("appointmentId") Long appointmentId);
+
+    @PostMapping("/api/doctors/{doctorId}/appointments/{appointmentId}/cancel")
+    void cancelAppointment(@PathVariable("doctorId") Long doctorId, @PathVariable("appointmentId") Long appointmentId);
 }
