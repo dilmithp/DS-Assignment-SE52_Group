@@ -16,12 +16,15 @@ public class SagaService {
 
     private final PaymentServiceClient paymentServiceClient;
     private final DoctorServiceClient doctorServiceClient;
+    private final AppointmentServiceClient appointmentServiceClient;
     private final NotificationProducer notificationProducer;
 
     public void startBookingSaga(Long appointmentId, Long patientId, Long doctorId) {
         log.info("Starting booking saga for appointment: {}", appointmentId);
         
         Long paymentId = null;
+        boolean doctorAccepted = false;
+
         try {
             // Step 1: Initiate Payment
             Map<String, Object> paymentRequest = Map.of(
@@ -35,19 +38,24 @@ public class SagaService {
 
             // Step 2: Confirm Slot with Doctor
             doctorServiceClient.acceptAppointment(doctorId, appointmentId);
+            doctorAccepted = true;
 
-            // Step 3: Publish Event
+            // Step 3: Complete Workflow (Mark status CONFIRMED)
+            appointmentServiceClient.updateAppointmentStatus(appointmentId, "CONFIRMED");
+
+            // Step 4: Publish Async Event
             notificationProducer.publishAppointmentBooked(appointmentId, patientId, doctorId);
             
             log.info("Booking saga completed successfully for appointment: {}", appointmentId);
 
         } catch (Exception e) {
             log.error("Saga failed, initiating compensation. Error: {}", e.getMessage());
-            compensate(appointmentId, paymentId, doctorId);
+            compensate(appointmentId, paymentId, doctorId, doctorAccepted);
         }
     }
 
-    private void compensate(Long appointmentId, Long paymentId, Long doctorId) {
+    private void compensate(Long appointmentId, Long paymentId, Long doctorId, boolean doctorAccepted) {
+        // Reverse Payment if it was processed
         if (paymentId != null) {
             try {
                 paymentServiceClient.refundPayment(paymentId);
@@ -56,7 +64,23 @@ public class SagaService {
                 log.error("Failed to refund payment: {}", paymentId, e);
             }
         }
-        // In a real system, we'd also reverse the doctor slot if it was confirmed,
-        // and tell appointment-service to cancel the appointment.
+        
+        // Reverse Doctor Schedule Slot if it was accepted
+        if (doctorAccepted) {
+            try {
+                doctorServiceClient.cancelAppointment(doctorId, appointmentId);
+                log.info("Released doctor slot for appointment: {}", appointmentId);
+            } catch (Exception e) {
+                log.error("Failed to release doctor slot for appointment: {}", appointmentId, e);
+            }
+        }
+
+        // Notify Appointment service of failure
+        try {
+            appointmentServiceClient.updateAppointmentStatus(appointmentId, "FAILED");
+            log.info("Marked appointment {} as FAILED", appointmentId);
+        } catch (Exception e) {
+            log.error("Failed to mark appointment {} as FAILED", appointmentId, e);
+        }
     }
 }
