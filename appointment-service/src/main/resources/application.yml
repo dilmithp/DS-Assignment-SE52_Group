@@ -1,39 +1,30 @@
 server:
-  port: 8083
+  port: 8081
+
 spring:
   application:
     name: appointment-service
   datasource:
-    url: jdbc:postgresql://localhost:5434/appointmentdb
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5433/appointment_db
+    username: layathma
+    password: layathmapwd
   jpa:
     hibernate:
       ddl-auto: update
-  cloud:
-    consul:
-      host: localhost
-      port: 8500
-      discovery:
-        enabled: true
-        register: true
-        health-check-path: /actuator/health
-        health-check-interval: 10s
-    openfeign:
-      client:
-        config:
-          default:
-            loggerLevel: full
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# Security / OAuth2 properties via Keycloak
   security:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://localhost:8180/realms/healthcare/protocol/openid-connect/certs
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health
-  endpoint:
-    health:
-      show-details: always
+          issuer-uri: http://localhost:8080/realms/healthcare-realm
+
+# Feign/Eureka configurations
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

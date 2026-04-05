@@ -1,13 +1,13 @@
 package com.healthcare.appointment.service;
 
 import com.healthcare.appointment.client.DoctorServiceClient;
-import com.healthcare.appointment.client.OrchestratorClient;
 import com.healthcare.appointment.client.PatientServiceClient;
-import com.healthcare.appointment.dto.AppointmentDto;
-import com.healthcare.appointment.dto.AppointmentModifyRequest;
 import com.healthcare.appointment.dto.AppointmentRequest;
+import com.healthcare.appointment.dto.AppointmentResponse;
 import com.healthcare.appointment.entity.Appointment;
 import com.healthcare.appointment.entity.AppointmentStatus;
+import com.healthcare.appointment.exception.ResourceNotFoundException;
+import com.healthcare.appointment.exception.DoubleBookingException;
 import com.healthcare.appointment.repository.AppointmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,73 +20,95 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AppointmentService {
 
-    private final AppointmentRepository appointmentRepository;
-    private final DoctorServiceClient doctorServiceClient;
-    private final PatientServiceClient patientServiceClient;
-    private final OrchestratorClient orchestratorClient;
+    private final AppointmentRepository repository;
+    private final DoctorServiceClient doctorClient;
+    private final PatientServiceClient patientClient;
 
     @Transactional
-    public AppointmentDto bookAppointment(AppointmentRequest request) {
-        // Validate patient and doctor exist by querying other services
-        patientServiceClient.getPatient(request.patientId());
-        doctorServiceClient.getDoctor(request.doctorId());
+    public AppointmentResponse createAppointment(AppointmentRequest request) {
+        // 1. Validation Rules: Validate Doctor & Patient existence
+        // patientClient.getPatientById(request.getPatientId());
+        // doctorClient.getDoctorById(request.getDoctorId());
 
+        // 2. Prevent Double Booking
+        boolean isDoubleBooked = repository.existsByDoctorIdAndAppointmentTimeAndStatusNot(
+                request.getDoctorId(), 
+                request.getAppointmentTime(), 
+                AppointmentStatus.CANCELLED
+        );
+        if (isDoubleBooked) {
+             throw new DoubleBookingException("Doctor is already booked at this time.");
+        }
+
+        // 3. Create Entity (Initially PENDING until Orchestrator handles payment/confirmation)
         Appointment appointment = Appointment.builder()
-                .patientId(request.patientId())
-                .doctorId(request.doctorId())
-                .dateTime(request.dateTime())
-                .type(request.type())
-                .status(AppointmentStatus.PENDING)
+                .patientId(request.getPatientId())
+                .doctorId(request.getDoctorId())
+                .appointmentTime(request.getAppointmentTime())
+                .notes(request.getNotes())
+                .status(AppointmentStatus.PENDING) 
                 .build();
 
-        appointment = appointmentRepository.save(appointment);
-
-        // Trigger Orchestrator Saga
-        orchestratorClient.startBookingSaga(appointment.getId(), appointment.getPatientId(), appointment.getDoctorId());
-
-        return mapToDto(appointment);
+        return mapToResponse(repository.save(appointment));
     }
 
-    public AppointmentDto getAppointment(Long id) {
-        return appointmentRepository.findById(id)
-                .map(this::mapToDto)
-                .orElseThrow(() -> new RuntimeException("Appointment not found"));
+    public AppointmentResponse getAppointment(Long id) {
+        return repository.findById(id)
+                .map(this::mapToResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with ID: " + id));
     }
 
-    @Transactional
-    public AppointmentDto cancelAppointment(Long id) {
-        Appointment appointment = appointmentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Appointment not found"));
-        appointment.setStatus(AppointmentStatus.CANCELLED);
-        appointment = appointmentRepository.save(appointment);
-        return mapToDto(appointment);
-    }
-
-    @Transactional
-    public AppointmentDto modifyAppointment(Long id, AppointmentModifyRequest request) {
-        Appointment appointment = appointmentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Appointment not found"));
-        appointment.setDateTime(request.dateTime());
-        appointment.setType(request.type());
-        appointment = appointmentRepository.save(appointment);
-        return mapToDto(appointment);
-    }
-
-    public List<AppointmentDto> getAppointmentsByPatient(Long patientId) {
-        return appointmentRepository.findByPatientId(patientId).stream()
-                .map(this::mapToDto)
+    public List<AppointmentResponse> getPatientAppointments(Long patientId) {
+        return repository.findByPatientId(patientId).stream()
+                .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    public List<AppointmentDto> getAppointmentsByDoctor(Long doctorId) {
-        return appointmentRepository.findByDoctorId(doctorId).stream()
-                .map(this::mapToDto)
+    public List<AppointmentResponse> getDoctorAppointments(Long doctorId) {
+        return repository.findByDoctorId(doctorId).stream()
+                .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    private AppointmentDto mapToDto(Appointment appointment) {
-        return new AppointmentDto(appointment.getId(), appointment.getPatientId(),
-                appointment.getDoctorId(), appointment.getDateTime(),
-                appointment.getStatus(), appointment.getType());
+    @Transactional
+    public void updateStatus(Long id, AppointmentStatus status) {
+        Appointment appointment = repository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+        appointment.setStatus(status);
+        repository.save(appointment);
+    }
+    
+    @Transactional
+    public AppointmentResponse reschedule(Long id, AppointmentRequest req) {
+        Appointment appointment = repository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+
+        if (!appointment.getDoctorId().equals(req.getDoctorId()) || !appointment.getAppointmentTime().equals(req.getAppointmentTime())) {
+            boolean isDoubleBooked = repository.existsByDoctorIdAndAppointmentTimeAndStatusNot(
+                    req.getDoctorId(), 
+                    req.getAppointmentTime(), 
+                    AppointmentStatus.CANCELLED
+            );
+            if (isDoubleBooked) {
+                 throw new DoubleBookingException("Doctor is already booked at this new time.");
+            }
+        }
+
+        appointment.setDoctorId(req.getDoctorId());
+        appointment.setAppointmentTime(req.getAppointmentTime());
+        appointment.setNotes(req.getNotes());
+        
+        return mapToResponse(repository.save(appointment));
+    }
+    
+    private AppointmentResponse mapToResponse(Appointment appointment) {
+        return AppointmentResponse.builder()
+                .id(appointment.getId())
+                .patientId(appointment.getPatientId())
+                .doctorId(appointment.getDoctorId())
+                .appointmentTime(appointment.getAppointmentTime())
+                .notes(appointment.getNotes())
+                .status(appointment.getStatus())
+                .build();
     }
 }
