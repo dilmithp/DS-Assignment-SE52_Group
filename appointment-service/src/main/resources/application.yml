@@ -21,7 +21,16 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/healthcare-realm
+          jwk-set-uri: http://65.2.171.207:8180/realms/healthcare/protocol/openid-connect/certs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
 
 # Feign/Eureka configurations
 eureka:
