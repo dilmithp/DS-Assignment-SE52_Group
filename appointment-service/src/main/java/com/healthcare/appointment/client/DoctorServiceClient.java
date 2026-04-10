@@ -3,14 +3,9 @@ package com.healthcare.appointment.client;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "doctor-service", path = "/api/doctors")
+@FeignClient(name = "doctor-service")
 public interface DoctorServiceClient {
-    
-    @GetMapping("/{id}")
-    Object getDoctorById(@PathVariable("id") Long id);
-
-    @GetMapping("/search")
-    Object searchDoctorsBySpecialty(@RequestParam("specialty") String specialty);
+    @GetMapping("/api/doctors/{id}")
+    Object getDoctor(@PathVariable("id") Long id);
 }
