@@ -4,9 +4,9 @@ spring:
   application:
     name: appointment-service
   datasource:
-    url: jdbc:postgresql://localhost:5434/appointmentdb
+    url: jdbc:postgresql://localhost:5432/appointment_db
     username: postgres
-    password: postgres
+    password: NewPassword123
   jpa:
     hibernate:
       ddl-auto: update
