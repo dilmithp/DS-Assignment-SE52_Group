@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.healthcare.doctor.dto.PrescriptionDto;
+import com.healthcare.doctor.dto.PrescriptionRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -58,15 +60,29 @@ public class DoctorController {
         return doctorService.getAvailability(id);
     }
 
-    @PutMapping("/{id}/appointments/{apptId}/accept")
+    @PutMapping("/{id}/appointments/{appointmentId}/accept")
     @PreAuthorize("hasRole('DOCTOR')")
-    public Map<String, String> acceptAppointment(@PathVariable Long id, @PathVariable Long apptId) {
-        return Map.of("status", "ACCEPTED", "appointmentId", apptId.toString(), "doctorId", id.toString());
+    public Map<String, String> acceptAppointment(@PathVariable Long id, @PathVariable Long appointmentId) {
+        return Map.of("status", "ACCEPTED", "appointmentId", appointmentId.toString(), "doctorId", id.toString());
     }
 
-    @PutMapping("/{id}/appointments/{apptId}/reject")
+    @PutMapping("/{id}/appointments/{appointmentId}/reject")
     @PreAuthorize("hasRole('DOCTOR')")
-    public Map<String, String> rejectAppointment(@PathVariable Long id, @PathVariable Long apptId) {
-        return Map.of("status", "REJECTED", "appointmentId", apptId.toString(), "doctorId", id.toString());
+    public Map<String, String> rejectAppointment(@PathVariable Long id, @PathVariable Long appointmentId) {
+        return Map.of("status", "REJECTED", "appointmentId", appointmentId.toString(), "doctorId", id.toString());
+    }
+
+    @PostMapping("/{id}/prescriptions")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('DOCTOR')")
+    public PrescriptionDto issuePrescription(@PathVariable Long id,
+                                             @RequestBody @Valid PrescriptionRequest request) {
+        return doctorService.issuePrescription(id, request);
+    }
+
+    @GetMapping("/prescriptions/patient/{patientId}")
+    @PreAuthorize("hasRole('PATIENT') or hasRole('DOCTOR')")
+    public List<PrescriptionDto> getPrescriptionsByPatient(@PathVariable Long patientId) {
+        return doctorService.getPrescriptionsByPatient(patientId);
     }
 }
