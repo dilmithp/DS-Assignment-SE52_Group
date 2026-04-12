@@ -89,7 +89,7 @@ public class DoctorService {
 
     private DoctorDto mapToDto(Doctor doctor) {
         return new DoctorDto(doctor.getId(), doctor.getName(), doctor.getEmail(),
-                doctor.getPhone(), doctor.getSpecialty(), doctor.getLicenseNumber());
+                doctor.getPhone(), doctor.getSpecialty(), doctor.getLicenseNumber(), doctor.isVerified());
     }
 
     private AvailabilityDto mapToDto(Availability availability) {
@@ -136,4 +136,14 @@ public class DoctorService {
                 prescription.getIssuedAt()
         );
     }
+    @Transactional
+    public DoctorDto verifyDoctor(Long id) {
+        Doctor doctor = doctorRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+
+        doctor.setVerified(true);
+        doctor = doctorRepository.save(doctor);
+        return mapToDto(doctor);
+    }
+
 }

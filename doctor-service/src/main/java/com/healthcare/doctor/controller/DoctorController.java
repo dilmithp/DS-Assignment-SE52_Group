@@ -22,6 +22,7 @@ import java.util.Map;
 public class DoctorController {
 
     private final DoctorService doctorService;
+    private final com.healthcare.doctor.client.PatientClient patientClient;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -84,5 +85,16 @@ public class DoctorController {
     @PreAuthorize("hasRole('PATIENT') or hasRole('DOCTOR')")
     public List<PrescriptionDto> getPrescriptionsByPatient(@PathVariable Long patientId) {
         return doctorService.getPrescriptionsByPatient(patientId);
+    }
+
+    @PutMapping("/{id}/verify")
+    @PreAuthorize("hasRole('ADMIN')")
+    public DoctorDto verifyDoctor(@PathVariable Long id) {
+        return doctorService.verifyDoctor(id);
+    }
+    @GetMapping("/{id}/patients/{patientId}/reports")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public Object viewPatientReports(@PathVariable Long id, @PathVariable Long patientId) {
+        return patientClient.getPatientHistory(patientId);
     }
 }
